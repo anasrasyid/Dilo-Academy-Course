@@ -16,6 +16,10 @@ public class Painter : MonoBehaviour
     public const int TEXTURE_WIDTH = 256;
     public const int TEXTURE_HEIGHT = 256;
 
+    public static Color shapeColor;
+    Color currentColor;
+
+    public static int NPOLYGON = 5;
 
     [Tooltip("Target bidang gambar")]
     public MeshRenderer targetRender;
@@ -31,7 +35,8 @@ public class Painter : MonoBehaviour
     {
         Line,
         Triangle,
-        Rectangle
+        Rectangle,
+        Polygon
     }
 
     public DrawingMode CurrentDrawingMode = DrawingMode.Line;
@@ -50,7 +55,7 @@ public class Painter : MonoBehaviour
         public List<Vector2> Vertices = new List<Vector2>();
     }
 
-    public List<ShapeModel> ShapeModels = new List<ShapeModel>();
+    public List<KeyValuePair<ShapeModel,Color>> ShapeModels = new List<KeyValuePair<ShapeModel, Color>>();
 
     ShapeModel currentDrawnShape;
 
@@ -71,6 +76,8 @@ public class Painter : MonoBehaviour
         // Mendapatkan camera utama
         cam = Camera.main;
 
+        shapeColor = Color.red;
+        currentColor = shapeColor;
         SetDefaultTexture();
         SetDefaultTemporaryTexture();
     }
@@ -237,6 +244,20 @@ public class Painter : MonoBehaviour
                     currentDrawnShape.Vertices.Add(new Vector2(startDownPos.x, pixelUV.y));
                     break;
 
+                case DrawingMode.Polygon:
+                    // posisi awal menekan mouse
+                    if (lineCount == 0)
+                    {
+                        currentDrawnShape = new ShapeModel();
+                        currentDrawnShape.Mode = DrawingMode.Polygon;
+
+                        startTrianglePos = startDownPos;
+
+                        // tambahkan data titik awal
+                        currentDrawnShape.Vertices.Add(pixelUV);
+                    }
+                    break;
+
             }
         }
         if (Input.GetMouseButton(0))
@@ -259,6 +280,7 @@ public class Painter : MonoBehaviour
                 // =========== 
                 // =========== tambahkan kode penggambaran segitiga
                 // =========== 
+                case DrawingMode.Polygon:
                 case DrawingMode.Triangle:
                     
 
@@ -300,12 +322,14 @@ public class Painter : MonoBehaviour
                     // menambahkan titik akhir
                     currentDrawnShape.Vertices.Add(pixelUV);
                     // menyimpan data gambar
-                    ShapeModels.Add(currentDrawnShape);
+                    currentColor = shapeColor;
+                    ShapeModels.Add(new KeyValuePair<ShapeModel,Color>(currentDrawnShape,currentColor));
+
+                    RenderShape(ref targetTexture, currentDrawnShape, currentColor);
 
                     // reset data yang sedang digambar
                     currentDrawnShape = null;
                     tempTargetRender.gameObject.SetActive(false);
-                    RenderShapes(ref targetTexture);
                     break;
 
                 // =========== 
@@ -336,29 +360,68 @@ public class Painter : MonoBehaviour
                     {
 
                         // tambahkan data gambar
-                        ShapeModels.Add(currentDrawnShape);
+                        currentColor = shapeColor;
+                        ShapeModels.Add(new KeyValuePair<ShapeModel, Color>(currentDrawnShape, currentColor));
 
                         // reset indeks garis
                         lineCount = 0;
 
                         // reset data yang sedang digambar
+                        RenderShape(ref targetTexture, currentDrawnShape,currentColor);
                         currentDrawnShape = null;
 
                         tempTargetRender.gameObject.SetActive(false);
-                        RenderShapes(ref targetTexture);
                     }
                     break;
 
                 case DrawingMode.Rectangle:
 
                     // tambahkan data gambar persegi
-                    ShapeModels.Add(currentDrawnShape);
+                    currentColor = shapeColor;
+                    ShapeModels.Add(new KeyValuePair<ShapeModel, Color>(currentDrawnShape, currentColor));
 
                     // reset data yang sedang digambar
+                    RenderShape(ref targetTexture, currentDrawnShape,currentColor);
                     currentDrawnShape = null;
                     tempTargetRender.gameObject.SetActive(false);
-                    RenderShapes(ref targetTexture);
 
+                    break;
+
+                case DrawingMode.Polygon:
+
+                    // menghitung jumlah garis yang sudah digambar
+                    if (lineCount < NPOLYGON - 1)
+                    {
+
+                        if (lineCount == 0 && (startDownPos.x != pixelUV.x && startDownPos.y != pixelUV.y))
+                        {
+                            lineCount = 1;
+                        }
+                        else
+                        {
+                            lineCount++;
+
+                            // tambahkan data titik baru
+                            currentDrawnShape.Vertices.Add(pixelUV);
+                        }
+
+                    }
+                    else
+                    {
+
+                        // tambahkan data gambar
+                        currentColor = shapeColor;
+                        ShapeModels.Add(new KeyValuePair<ShapeModel, Color>(currentDrawnShape, currentColor));
+
+                        // reset indeks garis
+                        lineCount = 0;
+
+                        // reset data yang sedang digambar
+                        RenderShape(ref targetTexture, currentDrawnShape, currentColor);
+                        currentDrawnShape = null;
+
+                        tempTargetRender.gameObject.SetActive(false);
+                    }
                     break;
             }
             lastMouseUpPos = pixelUV;
@@ -370,6 +433,7 @@ public class Painter : MonoBehaviour
 
             switch (this.CurrentDrawingMode)
             {
+                case DrawingMode.Polygon:
                 case DrawingMode.Triangle:
                     // titik yang sedang digerakkan
                     currentDrawnShape.Vertices[currentDrawnShape.Vertices.Count - 1] = pixelUV;
@@ -427,78 +491,80 @@ public class Painter : MonoBehaviour
     public void RenderShapes(ref Texture2D texture)
     {
         ClearColor(ref texture);
+        for (int i = 0; i < this.ShapeModels.Count; i++)
+        {
+            RenderShape(ref texture, ShapeModels[i].Key, ShapeModels[i].Value);
+        }
+    }
 
+    public void RenderShape(ref Texture2D texture, ShapeModel imageModel,Color color)
+    {
         int x1, y1, x2, y2;
         Vector2 vertex1;
         Vector2 vertex2;
-
         List<Edge> edges = new List<Edge>();
-        for (int i = 0; i < this.ShapeModels.Count; i++)
+        edges.Clear();
+
+        scanLineFill.Clear();
+
+        switch (imageModel.Mode)
         {
-            ShapeModel imageModel = this.ShapeModels[i];
-            edges.Clear();
+            case DrawingMode.Line:
+                x1 = (int)imageModel.Vertices[0].x;
+                y1 = (int)imageModel.Vertices[0].y;
+                x2 = (int)imageModel.Vertices[1].x;
+                y2 = (int)imageModel.Vertices[1].y;
+                edges.Add(new Edge(x1, y1, x2, y2));
+                break;
 
-            scanLineFill.Clear();
+            // ================================
+            // ========= Tambahkan proses hubungan antar titik
+            // ================================
+            case DrawingMode.Rectangle:
+            case DrawingMode.Polygon:
+            case DrawingMode.Triangle:
 
-            switch (imageModel.Mode)
-            {
-                case DrawingMode.Line:
-                    x1 = (int)imageModel.Vertices[0].x;
-                    y1 = (int)imageModel.Vertices[0].y;
-                    x2 = (int)imageModel.Vertices[1].x;
-                    y2 = (int)imageModel.Vertices[1].y;
-                    edges.Add(new Edge(x1, y1, x2, y2));
-                    break;
-
-                // ================================
-                // ========= Tambahkan proses hubungan antar titik
-                // ================================
-                case DrawingMode.Rectangle:
-                case DrawingMode.Triangle:
-
-                    for (int itVertex = 0; itVertex < imageModel.Vertices.Count - 1; itVertex++)
+                for (int itVertex = 0; itVertex < imageModel.Vertices.Count - 1; itVertex++)
+                {
+                    if (itVertex < imageModel.Vertices.Count - 1)
                     {
-                        if (itVertex < imageModel.Vertices.Count - 1)
-                        {
-                            vertex1 = imageModel.Vertices[itVertex];
-                            vertex2 = imageModel.Vertices[itVertex + 1];
+                        vertex1 = imageModel.Vertices[itVertex];
+                        vertex2 = imageModel.Vertices[itVertex + 1];
 
-                            x1 = (int)vertex1.x;
-                            y1 = (int)vertex1.y;
-                            x2 = (int)vertex2.x;
-                            y2 = (int)vertex2.y;
+                        x1 = (int)vertex1.x;
+                        y1 = (int)vertex1.y;
+                        x2 = (int)vertex2.x;
+                        y2 = (int)vertex2.y;
 
-                            // garis penghubung
-                            edges.Add(new Edge(x1, y1, x2, y2));
-                            scanLineFill.AddEdge(x1, y1, x2, y2);
-                        }
+                        // garis penghubung
+                        edges.Add(new Edge(x1, y1, x2, y2));
+                        scanLineFill.AddEdge(x1, y1, x2, y2);
                     }
+                }
 
-                    // garis terakhir
-                    vertex1 = imageModel.Vertices[imageModel.Vertices.Count - 1];
-                    vertex2 = imageModel.Vertices[0];
-                    x1 = (int)vertex1.x;
-                    y1 = (int)vertex1.y;
-                    x2 = (int)vertex2.x;
-                    y2 = (int)vertex2.y;
-                    edges.Add(new Edge(x1, y1, x2, y2));
-                    scanLineFill.AddEdge(x1, y1, x2, y2);
-                    break;
-            }
-
-            this.scanLineFill.targetTex = texture;
-            scanLineFill.ProcessEdgeTable();
-
-            // gambar garis dari masing-masing edge
-            for (int itEdge = 0; itEdge < edges.Count; itEdge++)
-            {
-                Edge edge = edges[itEdge];
-                DrawBresenhamLine(ref texture, edge.x1, edge.y1, edge.x2, edge.y2);
-            }
-
-            texture.Apply();
-
+                // garis terakhir
+                vertex1 = imageModel.Vertices[imageModel.Vertices.Count - 1];
+                vertex2 = imageModel.Vertices[0];
+                x1 = (int)vertex1.x;
+                y1 = (int)vertex1.y;
+                x2 = (int)vertex2.x;
+                y2 = (int)vertex2.y;
+                edges.Add(new Edge(x1, y1, x2, y2));
+                scanLineFill.AddEdge(x1, y1, x2, y2);
+                break;
         }
+
+        this.scanLineFill.targetTex = texture;
+        scanLineFill.ProcessEdgeTable(color);
+
+        // gambar garis dari masing-masing edge
+        for (int itEdge = 0; itEdge < edges.Count; itEdge++)
+        {
+            Edge edge = edges[itEdge];
+            DrawBresenhamLine(ref texture, edge.x1, edge.y1, edge.x2, edge.y2);
+        }
+
+        texture.Apply();
     }
 
     public void SetCurrentDrawingMode(string drawingMode)
@@ -514,7 +580,15 @@ public class Painter : MonoBehaviour
             case "rectangle":
                 this.CurrentDrawingMode = DrawingMode.Rectangle;
                 break;
+            case "polygon":
+                this.CurrentDrawingMode = DrawingMode.Polygon;
+                break;
         }
     }
 
+    public void ClearShape()
+    {
+        ShapeModels.Clear();
+        SetDefaultTexture();
+    }
 }

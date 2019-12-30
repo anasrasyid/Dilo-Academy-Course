@@ -15,11 +15,11 @@ public class AffineTransformer : MonoBehaviour
     // matrix:
     // a c
     // b d
-    void AffineTransform(float a, float b, float c, float d, List<Painter.ShapeModel> shapeModels)
+    void AffineTransform(float a, float b, float c, float d, List<KeyValuePair<Painter.ShapeModel,Color>> shapeModels)
     {
         for (int i = 0; i < shapeModels.Count; i++)
         {
-            Painter.ShapeModel shapeModel = shapeModels[i];
+            Painter.ShapeModel shapeModel = shapeModels[i].Key;
 
             // iterasi semua vertex
             for (int itVert = 0; itVert < shapeModel.Vertices.Count; itVert++)

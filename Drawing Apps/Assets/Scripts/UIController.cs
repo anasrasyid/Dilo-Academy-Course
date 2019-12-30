@@ -12,6 +12,8 @@ public class UIController : MonoBehaviour
     public InputField Mat_C;
     public InputField Mat_D;
 
+    public InputField NPolygon;
+
     [SerializeField] InputField DegreeInput;
     [SerializeField] Button TransformButton;
 
@@ -25,6 +27,11 @@ public class UIController : MonoBehaviour
     public void TransformButton_OnClick()
     {
         affineTransformer.ExecuteAffineTransformation(float.Parse(Mat_A.text), float.Parse(Mat_B.text), float.Parse(Mat_C.text), float.Parse(Mat_D.text));
+    }
+
+    public void SetPolygon()
+    {
+        Painter.NPOLYGON = int.Parse(NPolygon.text);
     }
 
     void DegreeInput_OnEndEdit(string value)

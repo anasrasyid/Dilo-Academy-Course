@@ -10,7 +10,9 @@ public class ScanLineFill : MonoBehaviour
     // Target texture yang akan digambar
     public Texture2D targetTex;
 
-    public Gradient gradient;
+    //public Gradient gradient;
+
+    private Color[] colors = { Color.red, Color.blue, Color.green};
 
     // Struktur data penampung nilai edge
     [System.Serializable]
@@ -88,7 +90,7 @@ public class ScanLineFill : MonoBehaviour
     }
 
 
-    public void ProcessEdgeTable()
+    public void ProcessEdgeTable(Color color)
     {
         if (EdgeTable.Count <= 0)
             return;
@@ -177,7 +179,7 @@ public class ScanLineFill : MonoBehaviour
                             Color previousColor = targetTex.GetPixel(itPair, y);
 
                             // warnai kolom di antara dua garis potong
-                            Color color = gradient.Evaluate(Mathf.InverseLerp(activeBucket.yMin, activeBucket.yMax, y));
+                            color.a = 0.5f;
                             Color newColor = color + previousColor * (1f - color.a);
                             targetTex.SetPixel(itPair, y, newColor);
                         }
@@ -201,6 +203,11 @@ public class ScanLineFill : MonoBehaviour
                 }
             }
         }
+    }
+
+    public void setIdxColor(int index)
+    {
+        Painter.shapeColor = colors[index];
     }
 
 }

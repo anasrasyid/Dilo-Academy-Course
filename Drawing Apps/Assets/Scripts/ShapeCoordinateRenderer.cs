@@ -34,9 +34,9 @@ public class ShapeCoordinateRenderer : MonoBehaviour
 
         for (int i = 0; i < painter.ShapeModels.Count; i++)
         {
-            for (int j = 0; j < painter.ShapeModels[i].Vertices.Count; j++)
+            for (int j = 0; j < painter.ShapeModels[i].Key.Vertices.Count; j++)
             {
-                var vertex = painter.ShapeModels[i].Vertices[j];
+                var vertex = painter.ShapeModels[i].Key.Vertices[j];
 
                 // membuat objek teks baru
                 GameObject newText = Instantiate(textPrefab) as GameObject;
@@ -46,7 +46,7 @@ public class ShapeCoordinateRenderer : MonoBehaviour
                     Debug.Log("NULL");
                     return;
                 }
-                string formattedString = string.Format("({0:0.00},{1:0.00})", vertex.x, vertex.y);
+                string formattedString = string.Format("({0:0.00},{1:0.00})", vertex.x / 100, vertex.y/100);
                 tmp.SetText(formattedString);
                 newText.SetActive(true);
 
